@@ -58,8 +58,12 @@ def main():
     ax = Axes3D(fig)
     ax.plot(radius[:,0], radius[:,1], radius[:,2])
     ax.scatter(radius[-1, 0], radius[-1,1], radius[-1,2])
-    ax.axis('equal')
     AP.plot_earth(ax, radius = .3)
+    ax.set_xlim(-.3,.3)
+    ax.set_ylim(-.3,.3)
+    ax.set_zlim(-.3,.3)
+    #ax.axis('equal')
+    
     plt.show()
 
 
