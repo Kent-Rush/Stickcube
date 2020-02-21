@@ -42,7 +42,13 @@ def main():
 
     times = arange(0, 400, 1, dtype = float)
 
-    newstates = vstack([solver.integrate(t) for t in times])
+    tspan = 100
+    dt = .1
+    newstates = []
+    while solver.successful() and solver.t < tspan:
+        solver.integrate(solver.t + dt)
+        newstates.append(solver.y)
+    newstates = vstack(newstates)
 
     radius = vstack([CF.quat2dcm(state[0], state[1:4])@pos for state in newstates])
     plt.figure()
@@ -77,9 +83,9 @@ def propagate(t, state, inertia, mass, Cd, r_body):
 
 
 
-    Tcontrol = -70*q_imag + -70*omega
+    Tcontrol = -.1*q_imag + -.1*omega
 
-    d_omega = inv(inertia)@(T + Tdrag - cross(omega, inertia@omega))
+    d_omega = inv(inertia)@(Tcontrol - cross(omega, inertia@omega))
 
     d_imag = .5*(q_real*identity(3) + CF.crux(q_imag))@omega
     d_real = -.5*dot(q_imag, omega)
