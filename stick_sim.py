@@ -35,7 +35,7 @@ def main():
     q_imag = axis*sin(angle/2)
 
     #initial angular velocity
-    omega = array([2,2,2])
+    omega = array([1,1,1])
 
     #initial wheel velocities
     omega_w1 = 0
@@ -122,12 +122,12 @@ def propagate(t, state, inertia, Iwheels, Awheels, mass, Cd, r_body):
     Tdrag = -omega*Cd
 
     #calculate a control torquw
-    Tcontrol = -.1*q_imag + -.1*omega - Tgrav
+    Tcontrol = -.1*q_imag -.1*omega - Tgrav
 
     #calculate the acceleration of the wheels (we control those)
     #we ignore the z component of the torque because we dont have a
     #wheel that could ever respond to that axis
-    alpha_wheels = Tcontrol[0:2]@inv(Awheels@Iwheels)
+    alpha_wheels = inv(Awheels@Iwheels)@Tcontrol[0:2]
     #add whatever disturbance torques here that you want to account for
     Tdisturbance = Tgrav
 
@@ -141,6 +141,7 @@ def propagate(t, state, inertia, Iwheels, Awheels, mass, Cd, r_body):
     #kinematic equations of quaternion derivatives
     d_imag = .5*(q_real*identity(3) + CF.crux(q_imag))@omega
     d_real = -.5*dot(q_imag, omega)
+
 
     d_wheels = -alpha_wheels
 
