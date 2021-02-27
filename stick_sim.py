@@ -11,6 +11,11 @@ sys.path.insert(0, '../Aero_Funcs')
 import Controls_Funcs as CF
 import Aero_Plots as AP
 
+def loading_bar(decimal_percentage, text = ''):
+    bar = '#'*int(decimal_percentage*20)
+    print('{2} :[{0:<20}] {1:.1f}%'.format(bar,decimal_percentage*100, text), end = '\r')
+    if decimal_percentage == 1:
+        print('')
 
 def main():
 
@@ -52,59 +57,68 @@ def main():
     solver = ode(propagate)
     solver.set_integrator('dopri5')
     solver.set_initial_value(state0, 0)
-    solver.set_f_params(inertia, Iwheels, Awheels, mass, Cd, cube_pos_body)
+    d_omega_out = []
+    solver.set_f_params(inertia, Iwheels, Awheels, mass, Cd, cube_pos_body, d_omega_out)
 
     #simulate the system for 30 seconds and get data ever 0.1 seconds
-    tspan = 30
+    tspan = 10
     dt = .1
     newstates = []
     while solver.successful() and solver.t < tspan:
+        d_omega_out.append(zeros(3))
         solver.integrate(solver.t + dt)
         newstates.append(solver.y)
+        loading_bar(solver.t/tspan, 'Simulating')
     newstates = vstack(newstates)
+    d_omega_out = vstack(d_omega_out)
 
-    #Calculate the position of the cube at every timestep
-    radius = vstack([CF.quat2dcm(state[0], state[1:4])@cube_pos_body for state in newstates])
-    plt.figure()
-    plt.plot(norm(radius, axis = 1))
+    save('true_states.npy', newstates)
 
-    #plotting poop
-    fig = plt.figure()
-    ax = Axes3D(fig)
-    ax.set_xlim(-.3,.3)
-    ax.set_ylim(-.3,.3)
-    ax.set_zlim(-.3,.3)
-    ax.plot([0,.3], [0,0], [0,0],'k')
-    ax.plot([0, 0], [0,.3], [0,0],'k')
-    ax.plot([0, 0], [0,0], [0,.3],'k')
-    #ax.axis('equal')
-    AP.plot_earth(ax, radius = .3)
+    save('d_omega.npy', d_omega_out)
 
-    lines = []
-    for index in range(len(radius)-1):
-        last = index - 10
-        if last < 0:
-            last = 0
-        state = newstates[index]
-        dcm_body2eci = CF.quat2dcm(state[0], state[1:4])
-        xbdy = vstack([radius[index], radius[index] + dcm_body2eci[:,0]*.1])
-        ybdy = vstack([radius[index], radius[index] + dcm_body2eci[:,1]*.1])
-        zbdy = vstack([radius[index], radius[index] + dcm_body2eci[:,2]*.1])
+    if '--anim' in sys.argv:
+        #Calculate the position of the cube at every timestep
+        radius = vstack([CF.quat2dcm(state[0], state[1:4])@cube_pos_body for state in newstates])
+        plt.figure()
+        plt.plot(norm(radius, axis = 1))
+
+        #plotting poop
+        fig = plt.figure()
+        ax = Axes3D(fig)
+        ax.set_xlim(-.3,.3)
+        ax.set_ylim(-.3,.3)
+        ax.set_zlim(-.3,.3)
+        ax.plot([0,.3], [0,0], [0,0],'k')
+        ax.plot([0, 0], [0,.3], [0,0],'k')
+        ax.plot([0, 0], [0,0], [0,.3],'k')
+        #ax.axis('equal')
+        AP.plot_earth(ax, radius = .3)
+
+        lines = []
+        for index in range(len(radius)-1):
+            last = index - 10
+            if last < 0:
+                last = 0
+            state = newstates[index]
+            dcm_body2eci = CF.quat2dcm(state[0], state[1:4])
+            xbdy = vstack([radius[index], radius[index] + dcm_body2eci[:,0]*.1])
+            ybdy = vstack([radius[index], radius[index] + dcm_body2eci[:,1]*.1])
+            zbdy = vstack([radius[index], radius[index] + dcm_body2eci[:,2]*.1])
 
 
 
-        px, = ax.plot(xbdy[:,0], xbdy[:,1], xbdy[:,2], 'g')
-        py, = ax.plot(ybdy[:,0], ybdy[:,1], ybdy[:,2], 'g')
-        pz, = ax.plot(zbdy[:,0], zbdy[:,1], zbdy[:,2], 'g')
+            px, = ax.plot(xbdy[:,0], xbdy[:,1], xbdy[:,2], 'g')
+            py, = ax.plot(ybdy[:,0], ybdy[:,1], ybdy[:,2], 'g')
+            pz, = ax.plot(zbdy[:,0], zbdy[:,1], zbdy[:,2], 'g')
 
-        pt, = ax.plot([radius[index,0]], [radius[index,1]], [radius[index,2]],'ro')
-        trail, = ax.plot(radius[last:index,0], radius[last:index,1], radius[last:index,2], 'k') 
-        lines.append([pt, trail, px, py, pz])
+            pt, = ax.plot([radius[index,0]], [radius[index,1]], [radius[index,2]],'ro')
+            trail, = ax.plot(radius[last:index,0], radius[last:index,1], radius[last:index,2], 'k') 
+            lines.append([pt, trail, px, py, pz])
 
-    anim = animation.ArtistAnimation(fig, lines, interval = 50, blit = True, repeat = True)
-    plt.show()
+        anim = animation.ArtistAnimation(fig, lines, interval = 50, blit = True, repeat = True)
+        plt.show()
 
-def propagate(t, state, inertia, Iwheels, Awheels, mass, Cd, r_body):
+def propagate(t, state, inertia, Iwheels, Awheels, mass, Cd, r_body, wheel_tau, d_omega_out):
 
     #pull out state variables
     g = 9.81
@@ -124,6 +138,10 @@ def propagate(t, state, inertia, Iwheels, Awheels, mass, Cd, r_body):
     #calculate a control torquw
     Tcontrol = -.1*q_imag -.1*omega - Tgrav
 
+
+
+    #Tcontrol = array([0,0,0])
+
     #calculate the acceleration of the wheels (we control those)
     #we ignore the z component of the torque because we dont have a
     #wheel that could ever respond to that axis
@@ -137,6 +155,8 @@ def propagate(t, state, inertia, Iwheels, Awheels, mass, Cd, r_body):
                             - cross(omega, inertia@omega
     #                                               This is our wheel momentum
                                            + hstack([Awheels@Iwheels@wheels,0]) ) )
+
+    d_omega_out[-1] = d_omega
 
     #kinematic equations of quaternion derivatives
     d_imag = .5*(q_real*identity(3) + CF.crux(q_imag))@omega

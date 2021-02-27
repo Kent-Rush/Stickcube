@@ -197,7 +197,7 @@ def quat_mult(real1, imag1, real2, imag2):
     """
 
     imag3 = real1*imag2 + real2*imag1 + crux(imag1)@imag2
-    real3 = real2*real1 - np.dot(imag1, imag2)
+    real3 = real2*real1 - dot(imag1, imag2)
 
     return real3, imag3
 
