@@ -1,6 +1,9 @@
 import serial
 import time
 import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 def crux(A):
     return np.array([[0, -A[2], A[1]],
@@ -55,15 +58,43 @@ def h(X, m_abs):
 	p = X[3:6]
 	return mrp2dcm(p)@m_abs
 
+class plotter():
+
+	def __init__(self):
+		self.fig = plt.figure()
+		self.ax = Axes3D(self.fig)
+		self.lines = []
+
+		self.lines.append(self.ax.plot([0,1], [0,0], [0,0])[0])
+		self.lines.append(self.ax.plot([0,0], [0,1], [0,0])[0])
+		self.lines.append(self.ax.plot([0,0], [0,0], [0,1])[0])
+
+	def ploot(self, p):
+		A = mrp2dcm(p)
+		for ii, line in enumerate(self.lines):
+
+			pt = np.zeros(3)
+			pt[ii] = 1
+			pt = A@pt
+
+			self.lines[ii].set_xdata([0,pt[0]])
+			self.lines[ii].set_ydata([0,pt[1]])
+			self.lines[ii].set_3d_properties([0,pt[2]])
+		self.fig.canvas.draw()
+
+
 if __name__ == "__main__":
+	matplotlib.interactive(True)
+	plooter = plotter()
+
 	arduino = serial.Serial(port='COM4', baudrate=115200, timeout=.1)
 
-	deviation = 1e-6
+	deviation = 2e-5
 	dt = .025
 	bias_0 = np.array([0,0,0])
 	mrp_0 = np.array([0.01,0.01,0.01])
 	X = np.hstack([bias_0, mrp_0])
-	P = np.identity(6)*1e-2
+	P = np.identity(6)*1e-1
 	K = np.zeros((6,6))
 
 	for ii in range(100):
@@ -119,6 +150,8 @@ if __name__ == "__main__":
 			if abs(xx) > 10:
 				X[ii] = 10*np.sign(xx)
 
+		plooter.ploot(X[3:6])
+
 		# print('F')
 		# print(F)
 		# print('H')
@@ -137,4 +170,4 @@ if __name__ == "__main__":
 		# print(y)
 		# print('X')
 		#print(X)
-		print(['{:+.3f}'.format(ii) for ii in X])
+		print(['{:+.3f}'.format(ii) for ii in measurements])
