@@ -132,9 +132,9 @@ if __name__ == "__main__":
     B_mag_nominal = np.linalg.norm(np.mean(still_mag, axis=0))
 
     
-    ca = 0.1
-    cd = 0.8
-    Qa = np.identity(3)*1e-8
+    ca = 0.2
+    cd = 0.9
+    Qa = np.identity(3)*1e-12
     Qb = np.identity(3)*1e-6
     Qd = np.identity(3)*1e-8
 
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     R = np.vstack([np.hstack([Ra             , np.zeros((3,3))]),
                    np.hstack([np.zeros((3,3)), Rm           ])])
 
-    P = np.identity(12)
+    P = np.identity(12)*1e-2
     
 
     qr = 1
@@ -164,7 +164,7 @@ if __name__ == "__main__":
 
         rate = rate/180*np.pi
 
-        qr, qi = quat_update(qr, qi, rate*dt)
+        qr, qi = quat_update(qr, qi, -rate*dt)
 
         DCM = quat2dcm(qr, qi)
 
@@ -173,7 +173,7 @@ if __name__ == "__main__":
         P = Q.copy()
 
         g_gyro = DCM@g_abs
-        m_gyro = DCM@mag_abs
+        m_gyro = DCM@(mag_abs - m_bias)
 
         H = get_H(g_gyro, m_gyro, dt)
 
@@ -191,7 +191,7 @@ if __name__ == "__main__":
 
         P = (np.identity(12) - K@H)@P
 
-        qr, qi = quat_update(qr, qi, -X[0:3]*dt)
+        qr, qi = quat_update(qr, qi, X[0:3])
         
         w_bias = w_bias - X[3:6]
         lin_accel = lin_accel -X[6:9]
