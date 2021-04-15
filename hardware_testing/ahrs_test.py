@@ -93,8 +93,12 @@ def quat_update(qr_i, qi_i, n):
 
 def axis_angle2quat(n):
 
-    axis = n/norm(n)
     angle = np.linalg.norm(n)
+    if angle < 1e-12:
+        return np.array([0,0,0]), 1
+
+    axis = n/norm(n)
+    
 
     imag = axis*sin(angle/2)
     real = cos(angle/2)
@@ -128,11 +132,11 @@ if __name__ == "__main__":
     B_mag_nominal = np.linalg.norm(np.mean(still_mag, axis=0))
 
     
-    ca = 0.5
-    cd = 0.5
-    Qa = np.identity(3)*1e-4
-    Qb = np.identity(3)*1e-4
-    Qd = np.identity(3)*1e-4
+    ca = 0.1
+    cd = 0.8
+    Qa = np.identity(3)*1e-8
+    Qb = np.identity(3)*1e-6
+    Qd = np.identity(3)*1e-8
 
     Ra = R_accel + Qa + dt**2*(Qb + R_rate)
     Rm = R_mag + Qd + dt**2*B_mag_nominal**2*(Qb + R_rate)
@@ -140,7 +144,7 @@ if __name__ == "__main__":
     R = np.vstack([np.hstack([Ra             , np.zeros((3,3))]),
                    np.hstack([np.zeros((3,3)), Rm           ])])
 
-    P = np.identity(12)*1e-2
+    P = np.identity(12)
     
 
     qr = 1
@@ -173,7 +177,7 @@ if __name__ == "__main__":
 
         H = get_H(g_gyro, m_gyro, dt)
 
-        K = P@H.T@(H@P@H.T + R)
+        K = P@H.T@np.linalg.inv(H@P@H.T + R)
 
         g_accel = accel - ca*lin_accel
 
@@ -182,6 +186,8 @@ if __name__ == "__main__":
 
         X = np.zeros(12)
         X = K@z
+
+        print(X)
 
         P = (np.identity(12) - K@H)@P
 
