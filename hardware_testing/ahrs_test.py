@@ -4,8 +4,6 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import sys
-sys.path.append('../../Aero_Funcs')
 import time
 
 def crux(A):
@@ -392,5 +390,7 @@ if __name__ == "__main__":
     plt.figure()
     Ts = np.asarray([np.trace(Ps[:,:,x]) for x in range(len(moving_mag))])
     plt.plot(Ts)
+
+    np.save('Ps', Ps)
 
     plt.show()
