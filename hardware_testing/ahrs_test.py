@@ -200,7 +200,7 @@ def dcm2quat(C):
     return real, np.hstack([qi, qj, qk])
 
 if __name__ == "__main__":
-    plt.ion()
+    # plt.ion()
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
@@ -226,11 +226,11 @@ if __name__ == "__main__":
     B_mag_nominal = np.linalg.norm(np.mean(still_mag, axis=0))
 
     
-    ca = 0.3
+    ca = 0.2
     cd = 0.3
     Qa = np.identity(3)*1e-1
-    Qb = np.identity(3)*1e-2
-    Qd = np.identity(3)*1e-3
+    Qb = np.identity(3)*1e-1
+    Qd = np.identity(3)*1e-2
 
     Ra = R_accel + Qa + dt**2*(Qb + R_rate)
     Rm = R_mag + Qd + dt**2*B_mag_nominal**2*(Qb + R_rate)
@@ -254,8 +254,14 @@ if __name__ == "__main__":
     w2 = 1-w1
 
 
+    triad_quat = []
+    complementary_quat = []
+    ekf_quat = []
+    Ps = []
+    Ks = []
+
     iters = 600
-    for mag, rate, accel in zip(moving_mag[:iters], moving_rate[:iters], moving_accel[:iters]):
+    for mag, rate, accel in zip(moving_mag, moving_rate, moving_accel):
     # while True:
         # mag, rate, accel = get_data(arduino)
 
@@ -290,8 +296,6 @@ if __name__ == "__main__":
         z = np.hstack([g_accel - g_gyro,
                       (mag-m_bias)     - m_gyro])
 
-        print(z)
-
         X = np.zeros(12)
         X = K@z
 
@@ -308,11 +312,14 @@ if __name__ == "__main__":
 
         DCM = quat2dcm(qr, qi)
 
-        
+        ekf_quat.append(np.hstack([qr, qi]))
+        Ps.append(P.copy())
+        Ks.append(K.copy())
 
         #Complementary time
 
         qrt, qit = TRIAD(mag, accel, mag_abs, g_abs)
+        qit = -qit
         qrw, qiw = quat_update(qrc, qic, -rate*dt)
 
         S = np.linalg.norm(np.hstack([qrw, qiw]))
@@ -320,7 +327,7 @@ if __name__ == "__main__":
         qiw = qiw/S
 
 
-        q1 = np.hstack([qrt, -qit])
+        q1 = np.hstack([qrt, qit])
         q2 = np.hstack([qrw, qiw])
         z  =np.sqrt((w1 - w2)**2 + 4*w1*w2*(np.dot(q1, q1)**2))
 
@@ -330,17 +337,60 @@ if __name__ == "__main__":
         qrc = q[0]
         qic = q[1:4]
 
-        DCM2 = quat2dcm(qrt, -qit)
+        DCM2 = quat2dcm(qrt, qit)
         DCM3 = quat2dcm(qrw, qiw)
         DCM4 = quat2dcm(qrc, qic)
 
-        plotlive([DCM4, DCM2, DCM3, DCM])
+        complementary_quat.append(np.hstack([qrc, qic]))
+        triad_quat.append(np.hstack([qrt, qit]))
 
-        #print(np.linalg.det(DCM2),np.linalg.det(DCM3),np.linalg.det(DCM4))
-
-
-
+        # plotlive([DCM4, DCM2, DCM3, DCM])
 
 
+    t = np.asarray([xx*dt for xx in range(len(moving_mag))])
+    triad_quat = np.vstack(triad_quat)
+    complementary_quat = np.vstack(complementary_quat)
+    ekf_quat = np.vstack(ekf_quat)
 
-        # print(['{:+.3f}'.format(ii) for ii in measurements])
+    for ii in range(len(moving_mag)):
+
+        if triad_quat[ii,1] < 0:
+            triad_quat[ii,:] = -triad_quat[ii,:]
+
+
+        if complementary_quat[ii,1] < 0:
+            complementary_quat[ii,:] = -complementary_quat[ii,:]
+
+
+        if ekf_quat[ii,1] < 0:
+            ekf_quat[ii,:] = -ekf_quat[ii,:]
+
+    Ks = np.stack(Ks, axis = 2)
+    Ps = np.stack(Ps, axis = 2)
+
+    print(triad_quat)
+
+    plt.figure()
+    plt.plot(triad_quat, 'r')
+    plt.plot(complementary_quat,'b')
+    plt.plot(ekf_quat,'k')
+    plt.title('qs')
+    plt.legend(['Triad, Complementary, EKF'])
+    
+    plt.figure()
+    plt.title('Ps')
+    for ii in range(3):
+        for jj in range(3):
+            plt.semilogy(abs(Ps[ii,jj,:]))
+
+    plt.figure()
+    plt.title('Ks')
+    for ii in range(3):
+        for jj in range(3):
+            plt.semilogy(abs(Ks[ii,jj,:]))
+
+    plt.figure()
+    Ts = np.asarray([np.trace(Ps[:,:,x]) for x in range(len(moving_mag))])
+    plt.plot(Ts)
+
+    plt.show()
