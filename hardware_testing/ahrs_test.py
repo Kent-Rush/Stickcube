@@ -79,6 +79,7 @@ def get_Q(P_, Qa, Qb, Qd, R_mag, R_rate, R_accel, ca, cd, dt):
     Q = np.zeros((12,12))
     Q[0:3,0:3] = P_[0:3,0:3] + dt**2*(P_[3:6,3:6] + Qb + R_rate)# Eq 10.1.17
     Q[0:3,3:6] = -dt*(P_[0:3,3:6] + Qb)
+    Q[3:6,0:3] = Q[0:3,3:6]
     Q[3:6,3:6] = P_[3:6,3:6] + Qb
     Q[6:9,6:9] = ca**2*P_[6:9,6:9] + Qa
     Q[9:12,9:12] = cd**2*P_[9:12,9:12] + Qd
@@ -214,14 +215,28 @@ if __name__ == "__main__":
     moving_rate = np.load('moving_rate_data_025dt.npy')
     moving_accel = np.load('moving_accel_data_025dt.npy')
 
+    moving_mag = moving_mag[200:,:]
+    moving_rate = moving_rate[200:,:]
+    moving_accel = moving_accel[200:,:]
+
     mag_abs = np.mean(still_mag, axis = 0)
     g_abs = np.array([0,0,9.8])
+
+    print(mag_abs)
 
     R_mag = np.cov(still_mag.T)
     R_rate = np.cov((still_rate/180*np.pi).T)
     R_accel = np.cov(still_accel.T)
 
     B_mag_nominal = np.linalg.norm(np.mean(still_mag, axis=0))
+    G_mag_nominal = np.linalg.norm(np.mean(still_accel, axis = 0))
+
+    print(R_mag)
+    print(R_rate)
+    print(R_accel)
+
+    print(B_mag_nominal)
+    print(G_mag_nominal)
 
     
     ca = 0.2
@@ -230,7 +245,7 @@ if __name__ == "__main__":
     Qb = np.identity(3)*1e-1
     Qd = np.identity(3)*1e-2
 
-    Ra = R_accel + Qa + dt**2*(Qb + R_rate)
+    Ra = R_accel + Qa + dt**2*G_mag_nominal**2*(Qb + R_rate)
     Rm = R_mag + Qd + dt**2*B_mag_nominal**2*(Qb + R_rate)
 
     R = np.vstack([np.hstack([Ra             , np.zeros((3,3))]),
@@ -248,13 +263,18 @@ if __name__ == "__main__":
     qrc = 1
     qic = np.array([0,0,0])
 
+    qr_int = 1
+    qi_int = np.array([0,0,0])
+
     w1 = .1
     w2 = 1-w1
 
+    first_run = True
 
     triad_quat = []
     complementary_quat = []
     ekf_quat = []
+    int_quat = []
     Ps = []
     Ks = []
 
@@ -316,6 +336,10 @@ if __name__ == "__main__":
 
         #Complementary time
 
+        
+
+        int_quat.append(np.hstack([qr_int, qi_int]))
+
         qrt, qit = TRIAD(mag, accel, mag_abs, g_abs)
         qit = -qit
         qrw, qiw = quat_update(qrc, qic, -rate*dt)
@@ -323,6 +347,17 @@ if __name__ == "__main__":
         S = np.linalg.norm(np.hstack([qrw, qiw]))
         qrw = qrw/S
         qiw = qiw/S
+
+
+        if first_run:
+            qr_int = qrt
+            qi_int = qit.copy()
+            first_run = False
+        qr_int, qi_int = quat_update(qr_int, qi_int, -rate*dt)
+
+        S = np.linalg.norm(np.hstack([qr_int, qi_int]))
+        qr_int = qr_int/S
+        qi_int = qi_int/S
 
 
         q1 = np.hstack([qrt, qit])
@@ -349,6 +384,7 @@ if __name__ == "__main__":
     triad_quat = np.vstack(triad_quat)
     complementary_quat = np.vstack(complementary_quat)
     ekf_quat = np.vstack(ekf_quat)
+    int_quat = np.vstack(int_quat)
 
     for ii in range(len(moving_mag)):
 
@@ -363,17 +399,26 @@ if __name__ == "__main__":
         if ekf_quat[ii,1] < 0:
             ekf_quat[ii,:] = -ekf_quat[ii,:]
 
+        if int_quat[ii,1] < 0:
+            int_quat[ii,:] = -int_quat[ii,:]
+
     Ks = np.stack(Ks, axis = 2)
     Ps = np.stack(Ps, axis = 2)
 
-    print(triad_quat)
 
     plt.figure()
+    plt.plot(triad_quat[:2,1], 'r')
+    plt.plot(int_quat[:2,1], 'b')
+    plt.plot(ekf_quat[:2,1], 'k')
     plt.plot(triad_quat, 'r')
-    plt.plot(complementary_quat,'b')
+    plt.plot(int_quat,'b')
     plt.plot(ekf_quat,'k')
     plt.title('qs')
-    plt.legend(['Triad, Complementary, EKF'])
+    plt.legend(['Triad', 'Integration', 'EKF'])
+
+    plt.figure()
+    plt.plot(np.arccos(triad_quat[:,1])*2,'r')
+    plt.plot(np.arccos(ekf_quat[:,1])*2,'k')
     
     plt.figure()
     plt.title('Ps')

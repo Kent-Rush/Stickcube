@@ -22,20 +22,21 @@ def get_data(serial_com):
     accel = measurements[6:9]
     return mag, rate, accel
 
-def collect_data():
+def collect_data(n):
     arduino = serial.Serial(port='COM4', baudrate=115200, timeout=.1)
 
-    input('ready to read')
-
-    mag_data = []
-    for ii in range(1000):
+    for ii in range(100):
         mag, rate, accel = get_data(arduino)
-        mag_data.append(mag)
+
+    input('ready to read')
+    data = np.zeros((n, 9))
+    for ii in range(n):
+        mag, rate, accel = get_data(arduino)
+        data[ii,:] = np.hstack([mag, rate, accel])
         if ii%100 == 0:
             print(ii)
 
-    mag_data = np.vstack(mag_data)
-    np.save('magdata2', mag_data)
+    np.save('data10k', data)
 
 def minim(x, data):
 
@@ -45,52 +46,52 @@ def minim(x, data):
 
 if __name__ == "__main__":
 
-    arduino = serial.Serial(port='COM4', baudrate=115200, timeout=.1)
+    # arduino = serial.Serial(port='COM4', baudrate=115200, timeout=.1)
 
-    
+    collect_data(1000)    
 
-    for ii in range(100):
-        mag, rate, accel = get_data(arduino)
+    # for ii in range(100):
+    #     mag, rate, accel = get_data(arduino)
 
-    print('reading still data')
-    mag_data = []
-    rate_data = []
-    accel_data = []
-    for ii in range(300):
-        mag, rate, accel = get_data(arduino)
-        mag_data.append(mag)
-        rate_data.append(rate)
-        accel_data.append(accel)
+    # print('reading still data')
+    # mag_data = []
+    # rate_data = []
+    # accel_data = []
+    # for ii in range(300):
+    #     mag, rate, accel = get_data(arduino)
+    #     mag_data.append(mag)
+    #     rate_data.append(rate)
+    #     accel_data.append(accel)
 
-    for m in mag_data:
-        print(m)
+    # for m in mag_data:
+    #     print(m)
 
-    mag_data = np.vstack(mag_data)
-    rate_data = np.vstack(rate_data)
-    accel_data = np.vstack(accel_data)
+    # mag_data = np.vstack(mag_data)
+    # rate_data = np.vstack(rate_data)
+    # accel_data = np.vstack(accel_data)
 
-    np.save('still_mag_data_025dt', mag_data)
-    np.save('still_rate_data_025dt', rate_data)
-    np.save('still_accel_data_025dt', accel_data)
+    # np.save('still_mag_data_025dt', mag_data)
+    # np.save('still_rate_data_025dt', rate_data)
+    # np.save('still_accel_data_025dt', accel_data)
 
-    input('ready to read moving data')
+    # input('ready to read moving data')
 
-    mag_data = []
-    rate_data = []
-    accel_data = []
-    for ii in range(1000):
-        mag, rate, accel = get_data(arduino)
-        mag_data.append(mag)
-        rate_data.append(rate)
-        accel_data.append(accel)
+    # mag_data = []
+    # rate_data = []
+    # accel_data = []
+    # for ii in range(1000):
+    #     mag, rate, accel = get_data(arduino)
+    #     mag_data.append(mag)
+    #     rate_data.append(rate)
+    #     accel_data.append(accel)
 
-    mag_data = np.vstack(mag_data)
-    rate_data = np.vstack(rate_data)
-    accel_data = np.vstack(accel_data)
+    # mag_data = np.vstack(mag_data)
+    # rate_data = np.vstack(rate_data)
+    # accel_data = np.vstack(accel_data)
 
-    np.save('moving_mag_data_025dt', mag_data)
-    np.save('moving_rate_data_025dt', rate_data)
-    np.save('moving_accel_data_025dt', accel_data)
+    # np.save('moving_mag_data_025dt', mag_data)
+    # np.save('moving_rate_data_025dt', rate_data)
+    # np.save('moving_accel_data_025dt', accel_data)
 
 
     # mag_data = np.load('magdata2.npy')
