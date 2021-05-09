@@ -1,4 +1,4 @@
-#include <stickcube_support_functions.h>
+#include "stickcube_support_functions.h"
 
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
@@ -11,61 +11,7 @@
 #define BNO055_SAMPLERATE_DELAY_MS (25)
 #define BMAG_NOMINAL (44.68464228649718)
 
-template<int dim, int diag_dim, class ElemT> struct sparsePQ
-{
-    mutable ElemT m[dim];
-    mutable ElemT dupper[diag_dim];
-    mutable ElemT dlower[diag_dim];
 
-    // The only requirement on this class is that it implement the () operator like so:
-    typedef ElemT elem_t;
-
-    ElemT &operator()(int row, int col) const
-    {
-        static ElemT dummy;
-
-        // If it's on the diagonal and it's not larger than the matrix dimensions then return the element
-        if(row == col && row < dim)
-        {
-            return m[row];
-        }
-        else if (col-3 == row && col < 6)
-        {
-          return dupper[col];
-        }
-        else if (col == row-3 && row < 6)
-        {
-          return dlower[row];
-        }
-        else
-        {
-            return (dummy = 0);
-        }
-    }
-};
-
-template<int dim, class ElemT> struct diag
-{
-    mutable ElemT m[dim];
-
-    // The only requirement on this class is that it implement the () operator like so:
-    typedef ElemT elem_t;
-
-    ElemT &operator()(int row, int col) const
-    {
-        static ElemT dummy;
-
-        // If it's on the diagonal and it's not larger than the matrix dimensions then return the element
-        if(row == col && row < dim)
-        {
-            return m[row];
-        }
-        else
-        {
-            return (dummy = 0);
-        }
-    }
-};
 
 // Check I2C device address and correct line below (by default address is 0x29 or 0x28)
 //                                   id, address
